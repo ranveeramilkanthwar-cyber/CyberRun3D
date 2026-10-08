@@ -221,9 +221,15 @@ const grLine = new THREE.Line(grLineGeo, new THREE.LineBasicMaterial({color: 0xf
 scene.add(grLine);
 
 // --- LOOP ---
+let lastCallTime = performance.now();
 function animate() {
     requestAnimationFrame(animate);
-    world.step(1/60);
+    
+    const time = performance.now();
+    const dt = (time - lastCallTime) / 1000;
+    lastCallTime = time;
+    
+    world.step(1/60, Math.min(dt, 0.1), 3);
 
     const speed = 40;
     let moveX=0, moveZ=0;
