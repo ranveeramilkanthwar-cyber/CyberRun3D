@@ -172,8 +172,12 @@ window.addEventListener('keydown', e => {
     }
     if(e.code === 'ShiftLeft' && state.dashReady) {
         state.dashReady = false;
-        const dir = new THREE.Vector3(0,0,-1).applyQuaternion(playerMesh.quaternion);
-        playerBody.velocity.set(dir.x*120, 10, dir.z*120);
+        // Dash in camera forward direction
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+        playerBody.velocity.set(forward.x * 120, 10, forward.z * 120);
         triggerGlitch(0.2);
         setTimeout(()=>state.dashReady=true, 1000);
     }
@@ -265,9 +269,22 @@ world.addEventListener("preStep", () => {
     if(keys['KeyD']) moveX += 1;
     
     if(moveX!==0 || moveZ!==0) {
-        const dir = new THREE.Vector2(moveX, moveZ).normalize();
-        playerBody.velocity.x = dir.x * speed;
-        if(!state.grappleConstraint) playerBody.velocity.z = dir.y * speed;
+        // Camera-relative movement calculations
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+        
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+        
+        const targetDir = new THREE.Vector3();
+        targetDir.addScaledVector(forward, -moveZ);
+        targetDir.addScaledVector(right, moveX);
+        targetDir.normalize();
+
+        playerBody.velocity.x = targetDir.x * speed;
+        if(!state.grappleConstraint) playerBody.velocity.z = targetDir.z * speed;
     } else {
         playerBody.velocity.x *= 0.85;
         if(!state.grappleConstraint) playerBody.velocity.z *= 0.85;
