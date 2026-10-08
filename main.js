@@ -309,7 +309,42 @@ playerBody.addEventListener("collide", (e) => {
     }
 });
 
-// --- BUTTON CONTROLS ---
+// --- BUTTON CONTROLS & JOYSTICK ---
+let joyX = 0, joyY = 0;
+const jZone = document.getElementById('joystick-zone');
+const jKnob = document.getElementById('joystick-knob');
+if (jZone) {
+    let jCenter = {x:0, y:0};
+    
+    jZone.addEventListener('touchstart', e => {
+        e.preventDefault(); e.stopPropagation();
+        const rect = jZone.getBoundingClientRect();
+        jCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+        updateJoy(e.touches[0]);
+    }, {passive: false});
+    
+    jZone.addEventListener('touchmove', e => {
+        e.preventDefault(); e.stopPropagation();
+        updateJoy(e.touches[0]);
+    }, {passive: false});
+    
+    jZone.addEventListener('touchend', e => {
+        e.preventDefault(); e.stopPropagation();
+        joyX = 0; joyY = 0;
+        jKnob.style.transform = `translate(0px, 0px)`;
+    }, {passive: false});
+    
+    function updateJoy(touch) {
+        const dx = touch.clientX - jCenter.x;
+        const dy = touch.clientY - jCenter.y;
+        const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
+        const angle = Math.atan2(dy, dx);
+        joyX = (dist * Math.cos(angle)) / 50; 
+        joyY = (dist * Math.sin(angle)) / 50; 
+        jKnob.style.transform = `translate(${joyX*50}px, ${joyY*50}px)`;
+    }
+}
+
 const bindBtn = (id, code) => {
     const btn = document.getElementById(id);
     if(btn) {
@@ -376,6 +411,10 @@ world.addEventListener("preStep", () => {
     if(keys['KeyS']) moveZ += 1;
     if(keys['KeyA']) moveX -= 1;
     if(keys['KeyD']) moveX += 1;
+    
+    // Combine Keyboard and Joystick
+    moveX = Math.abs(moveX) > 0 ? moveX : joyX;
+    moveZ = Math.abs(moveZ) > 0 ? moveZ : joyY;
     
     if(moveX!==0 || moveZ!==0) {
         // Camera relative movement!

@@ -105,16 +105,26 @@ h1 {
   background: rgba(0, 255, 255, 0.5);
 }
 
-#dpad {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
+#joystick-zone {
+  pointer-events: auto;
+  width: 150px;
+  height: 150px;
+  background: rgba(0, 255, 255, 0.1);
+  border: 2px solid rgba(0, 255, 255, 0.4);
+  border-radius: 50%;
+  position: relative;
+  touch-action: none;
+  display: none; /* Hidden on desktop by default, shown via media query if needed, or we just always show it on small screens */
 }
-
-.dpad-row {
-  display: flex;
-  gap: 5px;
+#joystick-knob {
+  width: 60px;
+  height: 60px;
+  background: rgba(0, 255, 255, 0.6);
+  border-radius: 50%;
+  position: absolute;
+  top: 45px;
+  left: 45px;
+  pointer-events: none;
 }
 
 #action-btns {
@@ -133,4 +143,19 @@ h1 {
 
 #action-btns button:active {
   background: rgba(255, 0, 255, 0.5);
+}
+
+@media (max-width: 800px) {
+  #joystick-zone { display: block; }
+  #action-btns {
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  #btn-jump {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+  }
 }
