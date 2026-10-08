@@ -82,7 +82,7 @@ scene.add(stars);
 // --- STATE ---
 const state = {
     level: 1, score: 0, 
-    jumps: 0, maxJumps: 3,
+    jumps: 0, maxJumps: 1, // Only jump when at ground
     dashReady: true,
     grappleBody: null, grappleConstraint: null,
     checkpoint: new THREE.Vector3(0, 10, 0),
@@ -132,7 +132,8 @@ scene.add(playerLight);
 // --- LEVEL GENERATION (RHYTHM/PATTERN BASED) ---
 const objects = [];
 function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isTrigger=false) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, metalness: 0.8 }));
+    // Toned down emissiveIntensity so it is "less bright and neon"
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.2, metalness: 0.8 }));
     mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
     const useHazardMat = (type==='hazard'||type==='spinner'||type==='pendulum');
     const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: useHazardMat?hazardMat:physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
@@ -174,35 +175,35 @@ function generateChunk(numBlocks) {
         if (state.nextCheckpointDist <= 0) {
             // Randomly spaced Checkpoint Door (every 8 to 20 blocks)
             state.nextCheckpointDist = 8 + Math.floor(Math.random() * 12);
-            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x2222ff);
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x1111aa);
             state.checkpointCount++;
             createCheckpointDoor(0, curZ, state.checkpointCount);
         } else if(r < 0.25) {
             // FALL GUYS: Spinning Hammers
-            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xff00ff); // Magenta pad
-            createObj(0, 5, curZ, 30, 4, 4, 'spinner', 0xffff00, 3 + state.level*0.2); // Fast spinner
-            createObj(18, 50, curZ, 4, 100, 20, 'hazard', 0xff0000); // Static blocker walls
-            createObj(-18, 50, curZ, 4, 100, 20, 'hazard', 0xff0000); 
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaa00aa); // Darker Magenta
+            createObj(0, 5, curZ, 30, 4, 4, 'spinner', 0xaaaa00, 3 + state.level*0.2); 
+            createObj(18, 50, curZ, 4, 100, 20, 'hazard', 0xaa0000); 
+            createObj(-18, 50, curZ, 4, 100, 20, 'hazard', 0xaa0000); 
         } else if (r < 0.5) {
             // FALL GUYS: Pendulums
-            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xffaa00);
-            createObj(-10, 25, curZ, 6, 6, 6, 'pendulum', 0xff0000, 3 + state.level*0.1);
-            createObj(10, 25, curZ, 6, 6, 6, 'pendulum', 0xff0000, 3.5 + state.level*0.1);
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaa5500); // Darker Orange
+            createObj(-10, 25, curZ, 6, 6, 6, 'pendulum', 0xaa0000, 3 + state.level*0.1);
+            createObj(10, 25, curZ, 6, 6, 6, 'pendulum', 0xaa0000, 3.5 + state.level*0.1);
         } else if (r < 0.7) {
             // FALL GUYS: Multi-Sliding Doors
-            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00ffff); // Cyan pad
-            createObj(-15, 50, curZ, 20, 100, 8, 'hazard', 0xff0000, 4 + state.level*0.2, 'x'); // Sweeps from left
-            createObj(15, 50, curZ, 20, 100, 8, 'hazard', 0xff0000, -4 - state.level*0.2, 'x'); // Sweeps opposite
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00aaaa); // Darker Cyan
+            createObj(-15, 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, 4 + state.level*0.2, 'x'); 
+            createObj(15, 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, -4 - state.level*0.2, 'x'); 
         } else if (r < 0.85) {
             // EASY: Massive jump gaps
-            createObj(0, 0, curZ, 40, 2, 8, 'pad', 0x00ff00);
-            createObj(-10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xffff00);
-            createObj(10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xffff00);
+            createObj(0, 0, curZ, 40, 2, 8, 'pad', 0x00aa00); // Darker Green
+            createObj(-10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xaaaa00);
+            createObj(10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xaaaa00);
             state.lastZ -= 15; // Extra gap distance
         } else {
             // EASY: Wide Safe pad with minor obstacles
-            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xffff00);
-            createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 8, 'hazard', 0xff0000, 2 + state.level*0.2, 'x');
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaaaa00); // Darker Yellow
+            createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 8, 'hazard', 0xaa0000, 2 + state.level*0.2, 'x');
         }
     }
 }
@@ -216,7 +217,7 @@ function initGame() {
     playerBody.position.set(0, 10, 0); playerBody.velocity.set(0,0,0);
     
     // Start pad
-    createObj(0, 0, 0, 40, 2, 20, 'pad', 0x2222ff);
+    createObj(0, 0, 0, 40, 2, 20, 'pad', 0x1111aa);
     generateChunk(25);
 }
 initGame();
@@ -252,8 +253,13 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => keys[e.code]=false);
 
 playerBody.addEventListener("collide", (e) => {
-    state.jumps = 0; // reset jumps reliably on any collision
     const hitObj = objects.find(o => o.body === e.body);
+    
+    // Only reset jumps when firmly landing on a ground pad
+    if (hitObj && hitObj.type === 'pad') {
+        state.jumps = 0; 
+    }
+    
     if(hitObj && (hitObj.type === 'hazard' || hitObj.type === 'spinner' || hitObj.type === 'pendulum')) {
         // Only tackle (destroy) the obstacle if you are currently diving!
         if(!state.dashReady) {
