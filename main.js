@@ -96,7 +96,6 @@ const state = {
     grappleBody: null, grappleConstraint: null,
     checkpoint: new THREE.Vector3(0, 10, 0),
     lastZ: 10,
-    lastY: 0,
     checkpointCount: 0,
     recordChk: parseInt(localStorage.getItem('recordChk') || '0'),
     nextCheckpointDist: 5 // Initial distance to first checkpoint
@@ -184,69 +183,51 @@ function createCheckpointDoor(x, y, z, num) {
     scene.add(mesh);
     
     // trigger body
-    const body = new CANNON.Body({ isTrigger: true, shape: new CANNON.Box(new CANNON.Vec3(20, 10, 1)), position: new CANNON.Vec3(x, y + 10, z) });
+    const body = new CANNON.Body({ isTrigger: true, shape: new CANNON.Box(new CANNON.Vec3(20, 10, 1)), position: new CANNON.Vec3(x, 10, z) });
     world.addBody(body);
-    objects.push({mesh, body, type: 'checkpoint_door', startX: x, startY: y + 10, startZ: z, active: true});
+    objects.push({mesh, body, type: 'checkpoint_door', startX: x, startY: 10, startZ: z, active: true});
 }
 
 function generateChunk(numBlocks) {
     for(let i=0; i<numBlocks; i++) {
         state.lastZ -= 20;
         const curZ = state.lastZ;
-        const curY = state.lastY;
         
         const r = Math.random();
         state.nextCheckpointDist--;
         if (state.nextCheckpointDist <= 0) {
             state.nextCheckpointDist = 8 + Math.floor(Math.random() * 12);
-            createObj(0, curY, curZ, 40, 2, 20, 'pad', 0x1111aa);
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x1111aa);
             state.checkpointCount++;
-            createCheckpointDoor(0, curY, curZ, state.checkpointCount);
-        } else if(r < 0.2) {
+            createCheckpointDoor(0, curZ, state.checkpointCount);
+        } else if(r < 0.25) {
             // FALL GUYS: Spinning Hammers
-            createObj(0, curY, curZ, 40, 2, 20, 'pad', 0xaa00aa); 
-            createObj(0, curY + 5, curZ, 30, 4, 4, 'spinner', 0xaaaa00, 3 + state.level*0.2); 
-            createObj(18, curY + 50, curZ, 4, 100, 20, 'hazard', 0xaa0000); 
-            createObj(-18, curY + 50, curZ, 4, 100, 20, 'hazard', 0xaa0000); 
-        } else if (r < 0.4) {
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaa00aa); 
+            createObj(0, 5, curZ, 30, 4, 4, 'spinner', 0xaaaa00, 3 + state.level*0.2); 
+            createObj(18, 50, curZ, 4, 100, 20, 'hazard', 0xaa0000); 
+            createObj(-18, 50, curZ, 4, 100, 20, 'hazard', 0xaa0000); 
+        } else if (r < 0.5) {
             // FALL GUYS: Pendulums
-            createObj(0, curY, curZ, 40, 2, 20, 'pad', 0xaa5500); 
-            createObj(-10, curY + 25, curZ, 6, 6, 6, 'pendulum', 0xaa0000, 3 + state.level*0.1);
-            createObj(10, curY + 25, curZ, 6, 6, 6, 'pendulum', 0xaa0000, 3.5 + state.level*0.1);
-        } else if (r < 0.55) {
-            // FALL GUYS: Multi-Sliding Doors
-            createObj(0, curY, curZ, 40, 2, 20, 'pad', 0x00aaaa); 
-            createObj(-15, curY + 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, 4 + state.level*0.2, 'x'); 
-            createObj(15, curY + 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, -4 - state.level*0.2, 'x'); 
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaa5500); 
+            createObj(-10, 25, curZ, 6, 6, 6, 'pendulum', 0xaa0000, 3 + state.level*0.1);
+            createObj(10, 25, curZ, 6, 6, 6, 'pendulum', 0xaa0000, 3.5 + state.level*0.1);
         } else if (r < 0.7) {
-            // MASSIVE INCLINED RAMP (Up or Down)
-            const pitch = (Math.random() > 0.5 ? 1 : -1) * 0.4; // steep incline or decline
-            const rampLen = 80;
-            // The ramp spans from curZ to curZ - rampLen.
-            // Z shift is rampLen * cos(pitch), Y shift is rampLen * sin(pitch)
-            const dZ = rampLen * Math.cos(pitch);
-            const dY = rampLen * Math.sin(-pitch); // -pitch because -Z is forward
-            
-            // Place ramp at midpoint
-            createObj(0, curY + dY/2, curZ - dZ/2, 40, 2, rampLen, 'pad', 0x220022, 0, 'x', false, pitch);
-            
-            // Spawn some bouncing hazards rolling down the ramp!
-            createObj(Math.random()*20-10, curY + dY/2 + 5, curZ - dZ/2, 8, 8, 8, 'bumper', 0xaa0000);
-            
-            state.lastZ -= dZ;
-            state.lastY += dY;
+            // FALL GUYS: Multi-Sliding Doors
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00aaaa); 
+            createObj(-15, 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, 4 + state.level*0.2, 'x'); 
+            createObj(15, 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, -4 - state.level*0.2, 'x'); 
         } else if (r < 0.85) {
             // FALL GUYS: Bumpers and Coins
-            createObj(0, curY, curZ, 40, 2, 20, 'pad', 0x00aa00); 
-            createObj(-10, curY + 5, curZ, 6, 8, 6, 'bumper', 0xaa0000);
-            createObj(10, curY + 5, curZ, 6, 8, 6, 'bumper', 0xaa0000);
-            createObj(0, curY + 5, curZ, 2, 0.5, 2, 'coin', 0xffff00);
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00aa00); 
+            createObj(-10, 5, curZ, 6, 8, 6, 'bumper', 0xaa0000);
+            createObj(10, 5, curZ, 6, 8, 6, 'bumper', 0xaa0000);
+            createObj(0, 5, curZ, 2, 0.5, 2, 'coin', 0xffff00);
         } else {
             // EASY: Wide Safe pad with minor obstacles
-            createObj(0, curY, curZ, 40, 2, 20, 'pad', 0xaaaa00); 
-            createObj((Math.random()-0.5)*20, curY + 50, curZ, 12, 100, 8, 'hazard', 0xaa0000, 2 + state.level*0.2, 'x');
-            createObj(0, curY + 5, curZ - 5, 2, 0.5, 2, 'coin', 0xffff00);
-            createObj(0, curY + 5, curZ + 5, 2, 0.5, 2, 'coin', 0xffff00);
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaaaa00); 
+            createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 8, 'hazard', 0xaa0000, 2 + state.level*0.2, 'x');
+            createObj(0, 5, curZ - 5, 2, 0.5, 2, 'coin', 0xffff00);
+            createObj(0, 5, curZ + 5, 2, 0.5, 2, 'coin', 0xffff00);
         }
     }
 }
@@ -257,7 +238,6 @@ function initGame() {
     
     state.checkpoint.set(0, 10, 0);
     state.lastZ = 10;
-    state.lastY = 0;
     playerBody.position.set(0, 10, 0); playerBody.velocity.set(0,0,0);
     
     // Start pad
@@ -585,7 +565,7 @@ function animate() {
         }
     }
 
-    if(playerBody.position.y < state.checkpoint.y - 50) die();
+    if(playerBody.position.y < -30) die();
 
     // Pulse Env
     const scale = 1 + Math.sin(Date.now()*0.01)*0.1;
