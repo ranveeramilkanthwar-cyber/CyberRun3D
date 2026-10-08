@@ -34,7 +34,7 @@ camera.lookAt(0, 10, 0);
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-bloom.threshold = 0.2; bloom.strength = 1.0; bloom.radius = 0.3;
+bloom.threshold = 0.2; bloom.strength = 0.3; bloom.radius = 0.1;
 composer.addPass(bloom);
 const glitch = new GlitchPass();
 glitch.enabled = false;
@@ -164,7 +164,7 @@ const keys = {};
 window.addEventListener('keydown', e => {
     keys[e.code]=true;
     if(e.code === 'Space' && state.jumps < state.maxJumps) {
-        playerBody.velocity.y = 20; state.jumps++;
+        playerBody.velocity.y = 28; state.jumps++; // Bigger jump
         triggerGlitch(0.1);
     }
     if(e.code === 'ShiftLeft' && state.dashReady) {
