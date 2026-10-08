@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // --- PHYSICS (ADVANCED CONSTRAINTS) ---
 const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -30, 0) });
@@ -33,6 +34,14 @@ document.body.appendChild(renderer.domElement);
 
 camera.position.set(0, 15, 25);
 camera.lookAt(0, 10, 0);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.1;
+controls.enablePan = false;
+controls.maxPolarAngle = Math.PI / 2 - 0.1; // Don't let camera go below ground
+controls.minDistance = 10;
+controls.maxDistance = 60;
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -369,13 +378,18 @@ world.addEventListener("preStep", () => {
     if(keys['KeyD']) moveX += 1;
     
     if(moveX!==0 || moveZ!==0) {
-        // TPP Camera relative movement
-        const forward = new THREE.Vector3(0, 0, -1); // strictly forward down the track
-        const right = new THREE.Vector3(1, 0, 0);
+        // Camera relative movement!
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0; // Keep movement purely horizontal
+        forward.normalize();
+        
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
         
         const targetDir = new THREE.Vector3();
-        targetDir.addScaledVector(forward, -moveZ);
-        targetDir.addScaledVector(right, moveX);
+        targetDir.addScaledVector(forward, -moveZ); // W goes forward relative to camera
+        targetDir.addScaledVector(right, moveX);    // D goes right relative to camera
         targetDir.normalize();
 
         playerBody.velocity.x = targetDir.x * speed;
@@ -515,13 +529,9 @@ function animate() {
     const scale = 1 + Math.sin(Date.now()*0.01)*0.1;
     envGeo.scale.set(1, scale, 1);
 
-    // TPP Camera (Follow behind and look forward)
-    const idealOffset = new THREE.Vector3(0, 12, 25);
-    const targetCamPos = playerGroup.position.clone().add(idealOffset);
-    camera.position.lerp(targetCamPos, 0.1);
-    
-    const idealLookAt = playerGroup.position.clone().add(new THREE.Vector3(0, 0, -30));
-    camera.lookAt(idealLookAt);
+    // Update Mouse View Camera
+    controls.target.copy(playerGroup.position);
+    controls.update();
 
     // Animate background stars
     const starPositions = starGeo.attributes.position.array;
