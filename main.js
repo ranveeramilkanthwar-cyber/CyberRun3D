@@ -4,7 +4,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // --- PHYSICS (ADVANCED CONSTRAINTS) ---
 const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -30, 0) });
@@ -29,16 +28,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.maxPolarAngle = Math.PI / 2 + 0.1; // Restrict going too far below the platforms
-controls.minDistance = 10;
-controls.maxDistance = 100;
-// Set initial view
-camera.position.set(0, 25, 35);
-controls.target.set(0, 10, 0);
-controls.update();
+camera.position.set(0, 15, 25);
+camera.lookAt(0, 10, 0);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -203,8 +194,18 @@ window.addEventListener('keyup', e => keys[e.code]=false);
 playerBody.addEventListener("collide", (e) => {
     state.jumps = 0; // reset jumps reliably on any collision
     const hitObj = objects.find(o => o.body === e.body);
-    if(hitObj && hitObj.type === 'hazard') {
-        die();
+    if(hitObj && (hitObj.type === 'hazard' || hitObj.type === 'spinner')) {
+        // Tackle and destroy the obstacle
+        scene.remove(hitObj.mesh);
+        world.removeBody(hitObj.body);
+        objects.splice(objects.indexOf(hitObj), 1);
+        
+        triggerGlitch(0.2);
+        state.score += 500; // Bonus for tackling
+        document.getElementById('score').innerText = state.score;
+        
+        const msg = document.getElementById('center-msg');
+        if(msg) { msg.innerText = "OBSTACLE TACKLED!"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
     }
 });
 
@@ -277,14 +278,9 @@ world.addEventListener("preStep", () => {
     if(keys['KeyD']) moveX += 1;
     
     if(moveX!==0 || moveZ!==0) {
-        // Camera-relative movement calculations
-        const forward = new THREE.Vector3();
-        camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-        
-        const right = new THREE.Vector3();
-        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+        // TPP Camera relative movement
+        const forward = new THREE.Vector3(0, 0, -1); // strictly forward down the track
+        const right = new THREE.Vector3(1, 0, 0);
         
         const targetDir = new THREE.Vector3();
         targetDir.addScaledVector(forward, -moveZ);
@@ -387,14 +383,13 @@ function animate() {
     const scale = 1 + Math.sin(Date.now()*0.01)*0.1;
     envGeo.scale.set(1, scale, 1);
 
-    // Camera (Orbit Controls Following Player)
-    // Shift target forward in the direction the camera is looking for an easier view ahead
-    const camForward = new THREE.Vector3();
-    camera.getWorldDirection(camForward);
-    camForward.y = 0;
-    camForward.normalize();
-    controls.target.copy(playerMesh.position).addScaledVector(camForward, 15);
-    controls.update(); // Smoothly follow and allow mouse rotation
+    // TPP Camera (Follow behind and look forward)
+    const idealOffset = new THREE.Vector3(0, 12, 25);
+    const targetCamPos = playerMesh.position.clone().add(idealOffset);
+    camera.position.lerp(targetCamPos, 0.1);
+    
+    const idealLookAt = playerMesh.position.clone().add(new THREE.Vector3(0, 0, -30));
+    camera.lookAt(idealLookAt);
 
     // Animate background stars
     const starPositions = starGeo.attributes.position.array;
