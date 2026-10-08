@@ -29,8 +29,8 @@ document.body.appendChild(renderer.domElement);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.5, 0.4, 0.85);
-bloom.threshold = 0.05; bloom.strength = 2.0; bloom.radius = 0.8;
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+bloom.threshold = 0.2; bloom.strength = 1.0; bloom.radius = 0.3;
 composer.addPass(bloom);
 const glitch = new GlitchPass();
 glitch.enabled = false;
@@ -173,6 +173,25 @@ window.addEventListener('keyup', e => keys[e.code]=false);
 playerBody.addEventListener("collide", (e) => {
     if(e.contact.ni.y > 0.5 || e.contact.ni.x > 0.5 || e.contact.ni.x < -0.5) state.jumps = 0; // reset on floor or wall
 });
+
+// --- BUTTON CONTROLS ---
+const bindBtn = (id, code) => {
+    const btn = document.getElementById(id);
+    if(btn) {
+        btn.addEventListener('mousedown', () => window.dispatchEvent(new KeyboardEvent('keydown', { code })));
+        btn.addEventListener('mouseup', () => window.dispatchEvent(new KeyboardEvent('keyup', { code })));
+        btn.addEventListener('mouseleave', () => window.dispatchEvent(new KeyboardEvent('keyup', { code })));
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { code })); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code })); });
+    }
+};
+bindBtn('btn-w', 'KeyW');
+bindBtn('btn-a', 'KeyA');
+bindBtn('btn-s', 'KeyS');
+bindBtn('btn-d', 'KeyD');
+bindBtn('btn-jump', 'Space');
+bindBtn('btn-dash', 'ShiftLeft');
+bindBtn('btn-grapple', 'KeyE');
 
 function triggerGlitch(time) {
     glitch.enabled = true;
