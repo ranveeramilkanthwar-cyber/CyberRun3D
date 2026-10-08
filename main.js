@@ -91,7 +91,8 @@ const state = {
     jumps: 0, maxJumps: 3,
     dashReady: true,
     grappleBody: null, grappleConstraint: null,
-    checkpoint: new THREE.Vector3(0, 10, 0)
+    checkpoint: new THREE.Vector3(0, 10, 0),
+    lastZ: 10
 };
 
 // --- PLAYER ---
@@ -116,51 +117,54 @@ function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isT
     return body;
 }
 
-function generate() {
+function generateChunk(numBlocks) {
+    for(let i=0; i<numBlocks; i++) {
+        state.lastZ -= 20;
+        const curZ = state.lastZ;
+        
+        const r = Math.random();
+        if (i % 6 === 0) {
+            // Visual Checkpoint
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x2222ff);
+            createObj(0, 5, curZ, 4, 8, 4, 'checkpoint_idle', 0xff0000, 0, 'x', true);
+        } else if(r < 0.3) {
+            // FALL GUYS: Spinning Hammers
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xff00ff); // Magenta pad
+            createObj(0, 5, curZ, 30, 4, 4, 'spinner', 0xffff00, 3 + state.level*0.2); // Fast spinner
+            createObj(18, 50, curZ, 4, 100, 20, 'hazard', 0xff0000); // Static blocker walls
+            createObj(-18, 50, curZ, 4, 100, 20, 'hazard', 0xff0000); 
+        } else if (r < 0.6) {
+            // FALL GUYS: Multi-Sliding Doors
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00ffff); // Cyan pad
+            createObj(-15, 50, curZ, 20, 100, 4, 'hazard', 0xff0000, 4 + state.level*0.2, 'x'); // Sweeps from left
+            createObj(15, 50, curZ, 20, 100, 4, 'hazard', 0xff0000, -4 - state.level*0.2, 'x'); // Sweeps opposite
+        } else if (r < 0.8) {
+            // EASY: Massive jump gaps
+            createObj(0, 0, curZ, 40, 2, 8, 'pad', 0x00ff00);
+            createObj(-10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xffff00);
+            createObj(10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xffff00);
+            state.lastZ -= 15; // Extra gap distance
+        } else {
+            // EASY: Wide Safe pad with minor obstacles
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xffff00);
+            createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 4, 'hazard', 0xff0000, 2 + state.level*0.2, 'x');
+        }
+    }
+}
+
+function initGame() {
     objects.forEach(o => { scene.remove(o.mesh); world.removeBody(o.body); });
     objects.length = 0;
     
     state.checkpoint.set(0, 10, 0);
+    state.lastZ = 10;
     playerBody.position.set(0, 10, 0); playerBody.velocity.set(0,0,0);
     
-    createObj(0, 0, 0, 20, 2, 20, 'pad', 0x2222ff);
-    let curX = 0, curZ = 0;
-    let dir = 0; // 0: -Z, 1: -X, 2: +X
-    
-    for(let i=0; i<20+state.level*5; i++) {
-        // Path strictly goes forward (straight line)
-        curZ -= 20;
-        
-        const r = Math.random();
-        if (i > 0 && i % 6 === 0) {
-            // Visual Checkpoint
-            createObj(0, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-            createObj(0, 5, curZ, 4, 8, 4, 'checkpoint_idle', 0xff0000, 0, 'x', true);
-        } else if(r < 0.3) {
-            // HARD: Gap with Grapple hook + Fast Moving wall
-            createObj(0, 15, curZ + 10, 4, 4, 4, 'grapple', 0xffff00);
-            createObj(0, 0, curZ, 16, 2, 16, 'pad', 0x2222ff);
-            createObj(0, 50, curZ, 12, 100, 2, 'hazard', 0xff0000, 4 + state.level * 0.5, 'x');
-        } else if (r < 0.6) {
-            // MEDIUM: Standard Moving walls
-            createObj(0, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-            createObj(-5, 50, curZ, 8, 100, 2, 'hazard', 0xff0000, 2 + state.level * 0.2, 'x');
-            createObj(5, 50, curZ-10, 8, 100, 2, 'hazard', 0xff0000, -2 - state.level * 0.2, 'x');
-        } else if (r < 0.8) {
-            // EASY: Staircase / Elevation
-            createObj(0, 2, curZ + 12, 12, 2, 12, 'pad', 0x2222ff);
-            createObj(0, 4, curZ + 6, 12, 2, 12, 'pad', 0x2222ff);
-            createObj(0, 6, curZ, 12, 2, 12, 'pad', 0x2222ff);
-        } else {
-            // EASY: Wide Safe pad
-            createObj(0, 0, curZ, 26, 2, 26, 'pad', 0x2222ff);
-        }
-    }
-    // Finish
-    curZ -= 20;
-    createObj(0, 0, curZ, 30, 2, 30, 'finish', 0xffffff);
+    // Start pad
+    createObj(0, 0, 0, 40, 2, 20, 'pad', 0x2222ff);
+    generateChunk(25);
 }
-generate();
+initGame();
 
 // --- CONTROLS & MECHANICS ---
 const keys = {};
@@ -339,6 +343,13 @@ function animate() {
                 o.mesh.position.copy(o.body.position);
             }
         }
+        if(o.type === 'spinner') {
+            if(o.moveSpeed) {
+                o.time += dt * 3;
+                o.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), o.time * o.moveSpeed);
+                o.mesh.quaternion.copy(o.body.quaternion);
+            }
+        }
         if(o.type === 'checkpoint_idle') {
             if(o.body.position.distanceTo(playerBody.position) < 8) {
                 o.type = 'checkpoint_active';
@@ -350,12 +361,25 @@ function animate() {
                 if(msg) { msg.innerText = "CHECKPOINT REACHED"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
             }
         }
-        if(o.type === 'finish' && o.body.position.distanceTo(playerBody.position) < 10) {
-            state.level++; state.score+=1000; document.getElementById('score').innerText = state.score;
-            document.getElementById('level-display').innerText = state.level;
-            generate();
-        }
     });
+
+    // Endless Generation & Garbage Collection
+    if(playerBody.position.z < state.lastZ + 150) {
+        state.level++; state.score+=1000; document.getElementById('score').innerText = state.score;
+        document.getElementById('level-display').innerText = state.level;
+        generateChunk(10);
+        
+        // Remove objects far behind the player (and far behind checkpoint) to prevent memory leaks
+        const cullZ = Math.max(playerBody.position.z, state.checkpoint.z) + 100;
+        for(let i=objects.length-1; i>=0; i--) {
+            const o = objects[i];
+            if(o.body.position.z > cullZ) {
+                scene.remove(o.mesh);
+                world.removeBody(o.body);
+                objects.splice(i, 1);
+            }
+        }
+    }
 
     if(playerBody.position.y < -30) die();
 
