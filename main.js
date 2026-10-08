@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // --- PHYSICS (ADVANCED CONSTRAINTS) ---
 const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -30, 0) });
@@ -27,6 +28,17 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.maxPolarAngle = Math.PI / 2 + 0.1; // Restrict going too far below the platforms
+controls.minDistance = 10;
+controls.maxDistance = 100;
+// Set initial view
+camera.position.set(0, 25, 35);
+controls.target.set(0, 10, 0);
+controls.update();
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -335,11 +347,9 @@ function animate() {
     const scale = 1 + Math.sin(Date.now()*0.01)*0.1;
     envGeo.scale.set(1, scale, 1);
 
-    // Camera (Higher Isometric-style view to handle multidirectional paths)
-    const dynamicOffset = new THREE.Vector3(0, 25, 35);
-    const tgt = new THREE.Vector3().copy(playerMesh.position).add(dynamicOffset);
-    camera.position.lerp(tgt, 0.08);
-    camera.lookAt(playerMesh.position);
+    // Camera (Orbit Controls Following Player)
+    controls.target.copy(playerMesh.position);
+    controls.update(); // Smoothly follow and allow mouse rotation
 
     // Animate background stars
     const starPositions = starGeo.attributes.position.array;
