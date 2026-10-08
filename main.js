@@ -60,7 +60,14 @@ dirLight.position.set(50, 100, 50);
 dirLight.castShadow = true;
 scene.add(dirLight);
 
-// Environment (Dynamic Hexagon Grid)
+// Environment (Dynamic Hexagon Grid & Slime)
+const slimeGeo = new THREE.PlaneGeometry(2000, 2000);
+const slimeMat = new THREE.MeshStandardMaterial({ color: 0xff00aa, emissive: 0xff0055, emissiveIntensity: 0.5, transparent: true, opacity: 0.8 });
+const slimePlane = new THREE.Mesh(slimeGeo, slimeMat);
+slimePlane.rotation.x = -Math.PI / 2;
+slimePlane.position.y = -15;
+scene.add(slimePlane);
+
 const envGeo = new THREE.InstancedMesh(new THREE.CylinderGeometry(2, 2, 10, 6), new THREE.MeshStandardMaterial({color: 0x111122, metalness: 0.8, roughness: 0.2}), 1000);
 scene.add(envGeo);
 const dummy = new THREE.Object3D();
@@ -566,7 +573,13 @@ function animate() {
         }
     }
 
-    if(playerBody.position.y < -30) die();
+    if(playerBody.position.y < -15) die();
+
+    // Make Slime follow player in X and Z
+    slimePlane.position.x = playerBody.position.x;
+    slimePlane.position.z = playerBody.position.z;
+    // Animate slime pulse
+    slimePlane.material.emissiveIntensity = 0.3 + Math.sin(Date.now()*0.005)*0.2;
 
     // Pulse Env
     const scale = 1 + Math.sin(Date.now()*0.01)*0.1;
