@@ -106,11 +106,11 @@ scene.add(playerLight);
 
 // --- LEVEL GENERATION (RHYTHM/PATTERN BASED) ---
 const objects = [];
-function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x') {
+function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isTrigger=false) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, metalness: 0.8 }));
     mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
     const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
-    if(type==='hazard') body.isTrigger = true;
+    if(type==='hazard' || isTrigger) body.isTrigger = true;
     world.addBody(body);
     objects.push({mesh, body, type, startX: x, startY: y, startZ: z, time: Math.random()*100, moveSpeed, moveAxis});
     return body;
@@ -142,7 +142,11 @@ function generate() {
         curX += dx; curZ += dz;
         
         const r = Math.random();
-        if(r < 0.2) {
+        if (i > 0 && i % 6 === 0) {
+            // Visual Checkpoint
+            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
+            createObj(curX, 5, curZ, 4, 8, 4, 'checkpoint_idle', 0xff0000, 0, 'x', true);
+        } else if(r < 0.2) {
             // Gap + Grapple hook point
             createObj(curX - dx*0.5, 15, curZ - dz*0.5, 4, 4, 4, 'grapple', 0xffff00);
             createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
@@ -203,12 +207,6 @@ window.addEventListener('keyup', e => keys[e.code]=false);
 
 playerBody.addEventListener("collide", (e) => {
     state.jumps = 0; // reset jumps reliably on any collision
-
-    // Checkpoint logic
-    const hitObj = objects.find(o => o.body === e.body);
-    if(hitObj && (hitObj.type === 'pad' || hitObj.type === 'finish')) {
-        state.checkpoint.set(hitObj.startX, hitObj.startY + 5, hitObj.startZ);
-    }
 });
 
 // --- BUTTON CONTROLS ---
@@ -333,6 +331,17 @@ function animate() {
                 o.mesh.position.copy(o.body.position);
             }
             if(o.body.position.distanceTo(playerBody.position) < 3) die();
+        }
+        if(o.type === 'checkpoint_idle') {
+            if(o.body.position.distanceTo(playerBody.position) < 8) {
+                o.type = 'checkpoint_active';
+                o.mesh.material.color.setHex(0x00ff00);
+                o.mesh.material.emissive.setHex(0x00ff00);
+                state.checkpoint.set(o.startX, o.startY + 5, o.startZ);
+                // Flash the screen slightly to indicate save
+                const msg = document.getElementById('center-msg');
+                if(msg) { msg.innerText = "CHECKPOINT REACHED"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
+            }
         }
         if(o.type === 'finish' && o.body.position.distanceTo(playerBody.position) < 10) {
             state.level++; state.score+=1000; document.getElementById('score').innerText = state.score;
