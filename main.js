@@ -53,7 +53,8 @@ glitch.enabled = false;
 composer.addPass(glitch);
 
 // Lighting
-scene.add(new THREE.AmbientLight(0x222222));
+const ambientLight = new THREE.AmbientLight(0x222222);
+scene.add(ambientLight);
 const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(50, 100, 50);
 dirLight.castShadow = true;
@@ -604,4 +605,26 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
 });
+
+let isDarkTheme = true;
+const themeBtn = document.getElementById('theme-btn');
+if(themeBtn) {
+    themeBtn.addEventListener('click', () => {
+        isDarkTheme = !isDarkTheme;
+        themeBtn.innerText = isDarkTheme ? '☀️' : '🌙';
+        
+        scene.background = new THREE.Color(isDarkTheme ? 0x050510 : 0xddddff);
+        scene.fog.color.setHex(isDarkTheme ? 0x050510 : 0xddddff);
+        
+        ambientLight.color.setHex(isDarkTheme ? 0x222222 : 0xdddddd);
+        dirLight.intensity = isDarkTheme ? 1 : 1.5;
+        document.body.style.color = isDarkTheme ? 'white' : 'black';
+        const title = document.getElementById('title');
+        if(title) title.style.textShadow = isDarkTheme ? '0 0 20px rgba(0, 255, 255, 0.8)' : 'none';
+        
+        bloom.strength = isDarkTheme ? 0.3 : 0.05;
+        stars.material.color.setHex(isDarkTheme ? 0x00ffff : 0xaaaaaa);
+    });
+}
+
 animate();
