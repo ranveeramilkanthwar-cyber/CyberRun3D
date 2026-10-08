@@ -15,8 +15,8 @@ world.addContactMaterial(new CANNON.ContactMaterial(physMat, physMat, { friction
 
 // --- SCENE ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x66ccff); // Fall Guys Blue Sky
-scene.fog = new THREE.FogExp2(0x66ccff, 0.010);
+scene.background = new THREE.Color(0x050510);
+scene.fog = new THREE.FogExp2(0x050510, 0.015);
 
 const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 2000);
 const cameraOffset = new THREE.Vector3(0, 8, 15);
@@ -88,7 +88,7 @@ const state = {
 
 // --- PLAYER (THE BEAN) ---
 const playerRadius = 1;
-const playerMesh = new THREE.Mesh(new THREE.CapsuleGeometry(playerRadius, 2, 4, 16), new THREE.MeshPhysicalMaterial({ color: 0xff66cc, roughness: 0.2 }));
+const playerMesh = new THREE.Mesh(new THREE.CapsuleGeometry(playerRadius, 2, 4, 16), new THREE.MeshPhysicalMaterial({ color: 0x00ffff, emissive: 0x00aaaa, roughness: 0.1, transmission: 0.9, thickness: 1.0 }));
 playerMesh.castShadow = true; scene.add(playerMesh);
 const playerBody = new CANNON.Body({ mass: 5, material: physMat, shape: new CANNON.Sphere(1.5), position: new CANNON.Vec3(0, 10, 0) });
 playerBody.fixedRotation = true; // Stay upright like a Fall Guy
