@@ -132,12 +132,21 @@ scene.add(playerLight);
 // --- LEVEL GENERATION (RHYTHM/PATTERN BASED) ---
 const objects = [];
 function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isTrigger=false) {
-    // Toned down emissiveIntensity so it is "less bright and neon"
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.2, metalness: 0.8 }));
+    let geo = new THREE.BoxGeometry(w, h, d);
+    let shape = new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2));
+    if(type === 'bumper') {
+        geo = new THREE.CylinderGeometry(w/2, w/2, h, 16);
+        // CANNON.Cylinder acts on Z axis, so just use sphere for physics for a bouncy bumper
+        shape = new CANNON.Sphere(w/2);
+    } else if (type === 'coin') {
+        geo = new THREE.TorusGeometry(w, h, 8, 16);
+    }
+    
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: type==='coin'?0.8:0.2, metalness: type==='coin'?1.0:0.8 }));
     mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
-    const useHazardMat = (type==='hazard'||type==='spinner'||type==='pendulum');
-    const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: useHazardMat?hazardMat:physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
-    if(isTrigger) body.isTrigger = true;
+    const useHazardMat = (type==='hazard'||type==='spinner'||type==='pendulum'||type==='bumper');
+    const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: useHazardMat?hazardMat:physMat, shape: shape, position: new CANNON.Vec3(x,y,z) });
+    if(isTrigger || type === 'coin') body.isTrigger = true;
     world.addBody(body);
     objects.push({mesh, body, type, startX: x, startY: y, startZ: z, time: Math.random()*100, moveSpeed, moveAxis});
     return body;
@@ -195,15 +204,17 @@ function generateChunk(numBlocks) {
             createObj(-15, 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, 4 + state.level*0.2, 'x'); 
             createObj(15, 50, curZ, 20, 100, 8, 'hazard', 0xaa0000, -4 - state.level*0.2, 'x'); 
         } else if (r < 0.85) {
-            // EASY: Massive jump gaps
-            createObj(0, 0, curZ, 40, 2, 8, 'pad', 0x00aa00); // Darker Green
-            createObj(-10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xaaaa00);
-            createObj(10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xaaaa00);
-            state.lastZ -= 15; // Extra gap distance
+            // FALL GUYS: Bumpers and Coins
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00aa00); // Darker Green
+            createObj(-10, 5, curZ, 6, 8, 6, 'bumper', 0xaa0000);
+            createObj(10, 5, curZ, 6, 8, 6, 'bumper', 0xaa0000);
+            createObj(0, 5, curZ, 2, 0.5, 2, 'coin', 0xffff00);
         } else {
             // EASY: Wide Safe pad with minor obstacles
             createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xaaaa00); // Darker Yellow
             createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 8, 'hazard', 0xaa0000, 2 + state.level*0.2, 'x');
+            createObj(0, 5, curZ - 5, 2, 0.5, 2, 'coin', 0xffff00);
+            createObj(0, 5, curZ + 5, 2, 0.5, 2, 'coin', 0xffff00);
         }
     }
 }
@@ -260,7 +271,7 @@ playerBody.addEventListener("collide", (e) => {
         state.jumps = 0; 
     }
     
-    if(hitObj && (hitObj.type === 'hazard' || hitObj.type === 'spinner' || hitObj.type === 'pendulum')) {
+    if(hitObj && (hitObj.type === 'hazard' || hitObj.type === 'spinner' || hitObj.type === 'pendulum' || hitObj.type === 'bumper')) {
         // Only tackle (destroy) the obstacle if you are currently diving!
         if(!state.dashReady) {
             scene.remove(hitObj.mesh);
@@ -273,8 +284,19 @@ playerBody.addEventListener("collide", (e) => {
             
             const msg = document.getElementById('center-msg');
             if(msg) { msg.innerText = "OBSTACLE SMASHED!"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
+        } else {
+            // Arcade-Perfect Physics Knockback
+            const dx = playerBody.position.x - hitObj.body.position.x;
+            const dz = playerBody.position.z - hitObj.body.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz) || 1;
+            
+            // Apply massive explosive force outward and upward
+            playerBody.velocity.x = (dx/dist) * 50;
+            playerBody.velocity.y = 30; // Knock them high into the air
+            playerBody.velocity.z = (dz/dist) * 50;
+            
+            triggerGlitch(0.1);
         }
-        // Otherwise, Fall Guys physics bounces you naturally!
     }
 });
 
@@ -439,6 +461,16 @@ function animate() {
                 o.body.position.x = o.startX + Math.sin(angle) * 15;
                 o.body.position.y = o.startY - Math.cos(angle) * 15;
                 o.mesh.position.copy(o.body.position);
+            }
+        }
+        if(o.type === 'coin') {
+            o.mesh.rotation.y += dt * 5;
+            if(o.body.position.distanceTo(playerBody.position) < 4) {
+                scene.remove(o.mesh);
+                world.removeBody(o.body);
+                objects.splice(objects.indexOf(o), 1);
+                state.score += 100;
+                document.getElementById('score').innerText = state.score;
             }
         }
         if(o.type === 'checkpoint_door') {
