@@ -21,7 +21,8 @@ scene.fog = new THREE.FogExp2(0x050510, 0.015);
 const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 2000);
 const cameraOffset = new THREE.Vector3(0, 8, 15);
 
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2 for performance
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -250,15 +251,9 @@ scene.add(grLine);
 
 // --- LOOP ---
 let lastCallTime = performance.now();
-function animate() {
-    requestAnimationFrame(animate);
-    
-    const time = performance.now();
-    const dt = (time - lastCallTime) / 1000;
-    lastCallTime = time;
-    
-    world.step(1/60, Math.min(dt, 0.1), 3);
 
+// Run controls in physics preStep for perfectly smooth, frame-independent movement
+world.addEventListener("preStep", () => {
     const speed = 40;
     let moveX=0, moveZ=0;
     if(keys['KeyW']) moveZ -= 1;
@@ -271,9 +266,19 @@ function animate() {
         playerBody.velocity.x = dir.x * speed;
         if(!state.grappleConstraint) playerBody.velocity.z = dir.y * speed;
     } else {
-        playerBody.velocity.x *= 0.9;
-        if(!state.grappleConstraint) playerBody.velocity.z *= 0.9;
+        playerBody.velocity.x *= 0.85;
+        if(!state.grappleConstraint) playerBody.velocity.z *= 0.85;
     }
+});
+
+function animate() {
+    requestAnimationFrame(animate);
+    
+    const time = performance.now();
+    const dt = (time - lastCallTime) / 1000;
+    lastCallTime = time;
+    
+    world.step(1/60, Math.min(dt, 0.1), 3);
 
     playerMesh.position.copy(playerBody.position);
     playerMesh.quaternion.copy(playerBody.quaternion);
@@ -301,7 +306,7 @@ function animate() {
     objects.forEach(o => {
         if(o.type === 'hazard') {
             if(o.moveSpeed) {
-                o.time += 0.05;
+                o.time += dt * 3; // Frame-rate independent hazard movement
                 if(o.moveAxis === 'x') {
                     o.body.position.x = o.startX + Math.sin(o.time) * o.moveSpeed;
                 } else {
