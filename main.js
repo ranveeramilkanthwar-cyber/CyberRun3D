@@ -77,6 +77,10 @@ const state = {
     level: 1, score: 0, 
     jumps: 0, maxJumps: 3,
     dashReady: true,
+    grappleBody: null, grappleConstraint: null,
+    checkpoint: new THREE.Vector3(0, 10, 0)
+};
+    dashReady: true,
     grappleBody: null, grappleConstraint: null
 };
 
@@ -92,13 +96,13 @@ scene.add(playerLight);
 
 // --- LEVEL GENERATION (RHYTHM/PATTERN BASED) ---
 const objects = [];
-function createObj(x, y, z, w, h, d, type, color, moveSpeed=0) {
+function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x') {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, metalness: 0.8 }));
     mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
     const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
     if(type==='hazard') body.isTrigger = true;
     world.addBody(body);
-    objects.push({mesh, body, type, startX: x, startY: y, time: Math.random()*100, moveSpeed});
+    objects.push({mesh, body, type, startX: x, startY: y, startZ: z, time: Math.random()*100, moveSpeed, moveAxis});
     return body;
 }
 
@@ -106,37 +110,54 @@ function generate() {
     objects.forEach(o => { scene.remove(o.mesh); world.removeBody(o.body); });
     objects.length = 0;
     
+    state.checkpoint.set(0, 10, 0);
     playerBody.position.set(0, 10, 0); playerBody.velocity.set(0,0,0);
     
     createObj(0, 0, 0, 20, 2, 20, 'pad', 0x2222ff);
-    let curZ = 0;
+    let curX = 0, curZ = 0;
+    let dir = 0; // 0: -Z, 1: -X, 2: +X
+    
     for(let i=0; i<20+state.level*5; i++) {
-        curZ -= 20;
+        // Randomly turn left or right
+        if(Math.random() < 0.35) {
+            if(dir === 0) dir = (Math.random() < 0.5) ? 1 : 2;
+            else dir = 0;
+        }
+        
+        let dx = 0, dz = 0;
+        if(dir === 0) dz = -20;
+        else if(dir === 1) dx = -20;
+        else if(dir === 2) dx = 20;
+        
+        curX += dx; curZ += dz;
+        
         const r = Math.random();
         if(r < 0.2) {
             // Gap + Grapple hook point
-            createObj(0, 15, curZ-10, 4, 4, 4, 'grapple', 0xffff00);
-            createObj(0, 0, curZ-20, 20, 2, 20, 'pad', 0x2222ff);
-            curZ -= 20;
+            createObj(curX - dx*0.5, 15, curZ - dz*0.5, 4, 4, 4, 'grapple', 0xffff00);
+            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
         } else if (r < 0.5) {
-            // Moving walls
-            createObj(0, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-            createObj(-5, 5, curZ, 8, 10, 2, 'hazard', 0xff0000, 1 + state.level * 0.2);
-            createObj(5, 5, curZ-10, 8, 10, 2, 'hazard', 0xff0000, -1 - state.level * 0.2);
+            // Moving walls (Hazards)
+            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
+            if(dir === 0) { // Moving along Z, obstacles sweep X
+                createObj(curX, 5, curZ, 12, 10, 2, 'hazard', 0xff0000, 2 + state.level * 0.3, 'x');
+            } else { // Moving along X, obstacles sweep Z
+                createObj(curX, 5, curZ, 2, 10, 12, 'hazard', 0xff0000, 2 + state.level * 0.3, 'z');
+            }
         } else if (r < 0.7) {
-            // Wall run section
-            createObj(-12, 5, curZ-10, 2, 10, 40, 'pad', 0x00ff00);
-            curZ -= 20;
+            // Staircase / Elevation
+            createObj(curX - dx*0.6, 2, curZ - dz*0.6, 12, 2, 12, 'pad', 0x2222ff);
+            createObj(curX - dx*0.3, 4, curZ - dz*0.3, 12, 2, 12, 'pad', 0x2222ff);
+            createObj(curX, 6, curZ, 12, 2, 12, 'pad', 0x2222ff);
         } else {
-            // Staircase
-            createObj(0, 2, curZ, 14, 2, 14, 'pad', 0x2222ff);
-            createObj(0, 4, curZ-8, 14, 2, 14, 'pad', 0x2222ff);
-            createObj(0, 6, curZ-16, 14, 2, 14, 'pad', 0x2222ff);
-            curZ -= 16;
+            // Safe pad
+            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
         }
     }
     // Finish
-    createObj(0, 0, curZ-20, 24, 2, 24, 'finish', 0xffffff);
+    curX += (dir===1?-20:dir===2?20:0);
+    curZ += (dir===0?-20:0);
+    createObj(curX, 0, curZ, 30, 2, 30, 'finish', 0xffffff);
 }
 generate();
 
@@ -171,7 +192,13 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => keys[e.code]=false);
 
 playerBody.addEventListener("collide", (e) => {
-    if(e.contact.ni.y > 0.5 || e.contact.ni.x > 0.5 || e.contact.ni.x < -0.5) state.jumps = 0; // reset on floor or wall
+    state.jumps = 0; // reset jumps reliably on any collision
+
+    // Checkpoint logic
+    const hitObj = objects.find(o => o.body === e.body);
+    if(hitObj && (hitObj.type === 'pad' || hitObj.type === 'finish')) {
+        state.checkpoint.set(hitObj.startX, hitObj.startY + 5, hitObj.startZ);
+    }
 });
 
 // --- BUTTON CONTROLS ---
@@ -200,9 +227,10 @@ function triggerGlitch(time) {
 
 function die() {
     triggerGlitch(0.5);
-    state.score = Math.max(0, state.score - 100);
+    state.score = Math.max(0, state.score - 50);
     document.getElementById('score').innerText = state.score;
-    playerBody.position.set(0, 10, 0); playerBody.velocity.set(0,0,0);
+    playerBody.position.set(state.checkpoint.x, state.checkpoint.y, state.checkpoint.z);
+    playerBody.velocity.set(0,0,0);
 }
 
 // Custom Trail
@@ -274,7 +302,11 @@ function animate() {
         if(o.type === 'hazard') {
             if(o.moveSpeed) {
                 o.time += 0.05;
-                o.body.position.x = o.startX + Math.sin(o.time) * o.moveSpeed;
+                if(o.moveAxis === 'x') {
+                    o.body.position.x = o.startX + Math.sin(o.time) * o.moveSpeed;
+                } else {
+                    o.body.position.z = o.startZ + Math.sin(o.time) * o.moveSpeed;
+                }
                 o.mesh.position.copy(o.body.position);
             }
             if(o.body.position.distanceTo(playerBody.position) < 3) die();
@@ -292,9 +324,10 @@ function animate() {
     const scale = 1 + Math.sin(Date.now()*0.01)*0.1;
     envGeo.scale.set(1, scale, 1);
 
-    // Camera
-    const tgt = new THREE.Vector3().copy(playerMesh.position).add(cameraOffset);
-    camera.position.lerp(tgt, 0.1);
+    // Camera (Higher Isometric-style view to handle multidirectional paths)
+    const dynamicOffset = new THREE.Vector3(0, 25, 35);
+    const tgt = new THREE.Vector3().copy(playerMesh.position).add(dynamicOffset);
+    camera.position.lerp(tgt, 0.08);
     camera.lookAt(playerMesh.position);
 
     // Animate background stars
