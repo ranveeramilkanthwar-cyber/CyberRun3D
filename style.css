@@ -77,7 +77,7 @@ h1 {
   bottom: 20px;
   left: 20px;
   right: 20px;
-  display: flex;
+  display: none; /* Hidden on PC, shown on mobile */
   justify-content: space-between;
   z-index: 10;
   pointer-events: none;
@@ -146,6 +146,7 @@ h1 {
 }
 
 @media (max-width: 800px) {
+  #controls { display: flex; }
   #joystick-zone { display: block; }
   #action-btns {
     flex-direction: column;
