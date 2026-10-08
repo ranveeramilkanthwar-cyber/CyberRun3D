@@ -140,12 +140,12 @@ function generate() {
             // HARD: Gap with Grapple hook + Fast Moving wall
             createObj(0, 15, curZ + 10, 4, 4, 4, 'grapple', 0xffff00);
             createObj(0, 0, curZ, 16, 2, 16, 'pad', 0x2222ff);
-            createObj(0, 5, curZ, 12, 10, 2, 'hazard', 0xff0000, 4 + state.level * 0.5, 'x');
+            createObj(0, 50, curZ, 12, 100, 2, 'hazard', 0xff0000, 4 + state.level * 0.5, 'x');
         } else if (r < 0.6) {
             // MEDIUM: Standard Moving walls
             createObj(0, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-            createObj(-5, 5, curZ, 8, 10, 2, 'hazard', 0xff0000, 2 + state.level * 0.2, 'x');
-            createObj(5, 5, curZ-10, 8, 10, 2, 'hazard', 0xff0000, -2 - state.level * 0.2, 'x');
+            createObj(-5, 50, curZ, 8, 100, 2, 'hazard', 0xff0000, 2 + state.level * 0.2, 'x');
+            createObj(5, 50, curZ-10, 8, 100, 2, 'hazard', 0xff0000, -2 - state.level * 0.2, 'x');
         } else if (r < 0.8) {
             // EASY: Staircase / Elevation
             createObj(0, 2, curZ + 12, 12, 2, 12, 'pad', 0x2222ff);
