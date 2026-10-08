@@ -361,7 +361,12 @@ function animate() {
     envGeo.scale.set(1, scale, 1);
 
     // Camera (Orbit Controls Following Player)
-    controls.target.copy(playerMesh.position);
+    // Shift target forward in the direction the camera is looking for an easier view ahead
+    const camForward = new THREE.Vector3();
+    camera.getWorldDirection(camForward);
+    camForward.y = 0;
+    camForward.normalize();
+    controls.target.copy(playerMesh.position).addScaledVector(camForward, 15);
     controls.update(); // Smoothly follow and allow mouse rotation
 
     // Animate background stars
