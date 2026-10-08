@@ -110,7 +110,7 @@ function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isT
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, metalness: 0.8 }));
     mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
     const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
-    if(type==='hazard' || isTrigger) body.isTrigger = true;
+    if(isTrigger) body.isTrigger = true;
     world.addBody(body);
     objects.push({mesh, body, type, startX: x, startY: y, startZ: z, time: Math.random()*100, moveSpeed, moveAxis});
     return body;
@@ -198,6 +198,10 @@ window.addEventListener('keyup', e => keys[e.code]=false);
 
 playerBody.addEventListener("collide", (e) => {
     state.jumps = 0; // reset jumps reliably on any collision
+    const hitObj = objects.find(o => o.body === e.body);
+    if(hitObj && hitObj.type === 'hazard') {
+        die();
+    }
 });
 
 // --- BUTTON CONTROLS ---
@@ -334,7 +338,6 @@ function animate() {
                 }
                 o.mesh.position.copy(o.body.position);
             }
-            if(o.body.position.distanceTo(playerBody.position) < 3) die();
         }
         if(o.type === 'checkpoint_idle') {
             if(o.body.position.distanceTo(playerBody.position) < 8) {
