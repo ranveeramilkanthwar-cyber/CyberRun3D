@@ -81,9 +81,6 @@ const state = {
     grappleBody: null, grappleConstraint: null,
     checkpoint: new THREE.Vector3(0, 10, 0)
 };
-    dashReady: true,
-    grappleBody: null, grappleConstraint: null
-};
 
 // --- PLAYER ---
 const playerRadius = 1;
@@ -232,6 +229,15 @@ function die() {
     document.getElementById('score').innerText = state.score;
     playerBody.position.set(state.checkpoint.x, state.checkpoint.y, state.checkpoint.z);
     playerBody.velocity.set(0,0,0);
+    if(state.grappleConstraint) { world.removeConstraint(state.grappleConstraint); state.grappleConstraint = null; }
+    
+    // Clear trail so it doesn't stretch across the map
+    for(let i=0; i<trailCount*3; i+=3) {
+        trailPos[i] = state.checkpoint.x;
+        trailPos[i+1] = state.checkpoint.y;
+        trailPos[i+2] = state.checkpoint.z;
+    }
+    trailGeo.attributes.position.needsUpdate = true;
 }
 
 // Custom Trail
@@ -297,7 +303,7 @@ function animate() {
         pts[3]=state.grappleConstraint.bodyB.position.x; pts[4]=state.grappleConstraint.bodyB.position.y; pts[5]=state.grappleConstraint.bodyB.position.z;
         grLineGeo.attributes.position.needsUpdate = true;
         // Reel in
-        state.grappleConstraint.distance = Math.max(2, state.grappleConstraint.distance - 0.2);
+        state.grappleConstraint.distance = Math.max(2, state.grappleConstraint.distance - dt * 15);
     } else {
         grLine.visible = false;
     }
