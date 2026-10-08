@@ -167,7 +167,7 @@ function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isT
     return body;
 }
 
-function createCheckpointDoor(x, y, z, num) {
+function createCheckpointDoor(x, z, num) {
     const canvas = document.createElement('canvas');
     canvas.width = 512; canvas.height = 256;
     const ctx = canvas.getContext('2d');
@@ -180,7 +180,7 @@ function createCheckpointDoor(x, y, z, num) {
     const tex = new THREE.CanvasTexture(canvas);
     
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(40, 20), new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false}));
-    mesh.position.set(x, y + 10, z);
+    mesh.position.set(x, 10, z);
     scene.add(mesh);
     
     // trigger body
