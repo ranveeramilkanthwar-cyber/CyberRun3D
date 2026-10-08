@@ -13,6 +13,9 @@ world.solver = solver;
 const physMat = new CANNON.Material();
 world.addContactMaterial(new CANNON.ContactMaterial(physMat, physMat, { friction: 0.0, restitution: 0.1 }));
 
+const hazardMat = new CANNON.Material();
+world.addContactMaterial(new CANNON.ContactMaterial(physMat, hazardMat, { friction: 0.2, restitution: 1.5 })); // Super bouncy Fall Guys style
+
 // --- SCENE ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050510);
@@ -84,8 +87,11 @@ const state = {
     grappleBody: null, grappleConstraint: null,
     checkpoint: new THREE.Vector3(0, 10, 0),
     lastZ: 10,
-    checkpointCount: 0
+    checkpointCount: 0,
+    recordChk: parseInt(localStorage.getItem('recordChk') || '0'),
+    nextCheckpointDist: 5 // Initial distance to first checkpoint
 };
+if(document.getElementById('record-chk')) document.getElementById('record-chk').innerText = state.recordChk;
 
 // --- PLAYER (THE BEAN CHARACTER) ---
 const playerRadius = 1;
@@ -128,7 +134,8 @@ const objects = [];
 function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isTrigger=false) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, metalness: 0.8 }));
     mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
-    const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
+    const useHazardMat = (type==='hazard'||type==='spinner'||type==='pendulum');
+    const body = new CANNON.Body({ type: moveSpeed?CANNON.Body.KINEMATIC:CANNON.Body.STATIC, material: useHazardMat?hazardMat:physMat, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), position: new CANNON.Vec3(x,y,z) });
     if(isTrigger) body.isTrigger = true;
     world.addBody(body);
     objects.push({mesh, body, type, startX: x, startY: y, startZ: z, time: Math.random()*100, moveSpeed, moveAxis});
@@ -163,8 +170,10 @@ function generateChunk(numBlocks) {
         const curZ = state.lastZ;
         
         const r = Math.random();
-        if (i % 6 === 0) {
-            // Visual Checkpoint Door
+        state.nextCheckpointDist--;
+        if (state.nextCheckpointDist <= 0) {
+            // Randomly spaced Checkpoint Door (every 8 to 20 blocks)
+            state.nextCheckpointDist = 8 + Math.floor(Math.random() * 12);
             createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x2222ff);
             state.checkpointCount++;
             createCheckpointDoor(0, curZ, state.checkpointCount);
@@ -393,10 +402,13 @@ function animate() {
     objects.forEach(o => {
         if(o.type === 'hazard') {
             if(o.moveSpeed) {
-                o.time += dt * 3; // Frame-rate independent hazard movement
+                o.time += dt * 3;
+                const v = Math.cos(o.time) * 3 * o.moveSpeed;
                 if(o.moveAxis === 'x') {
-                    o.body.position.x = o.startX + Math.sin(o.time) * o.moveSpeed;
+                    o.body.velocity.x = v;
+                    o.body.position.x = o.startX + Math.sin(o.time) * o.moveSpeed; // hard sync to prevent drift
                 } else {
+                    o.body.velocity.z = v;
                     o.body.position.z = o.startZ + Math.sin(o.time) * o.moveSpeed;
                 }
                 o.mesh.position.copy(o.body.position);
@@ -405,6 +417,7 @@ function animate() {
         if(o.type === 'spinner') {
             if(o.moveSpeed) {
                 o.time += dt * 3;
+                o.body.angularVelocity.set(0, o.moveSpeed * 3, 0); // Assign real angular velocity for correct collision impulses!
                 o.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), o.time * o.moveSpeed);
                 o.mesh.quaternion.copy(o.body.quaternion);
             }
@@ -413,6 +426,10 @@ function animate() {
             if(o.moveSpeed) {
                 o.time += dt * o.moveSpeed;
                 const angle = Math.sin(o.time) * Math.PI/2.5;
+                const dAngleDt = Math.cos(o.time) * o.moveSpeed * Math.PI/2.5;
+                o.body.velocity.x = Math.cos(angle) * dAngleDt * 15;
+                o.body.velocity.y = Math.sin(angle) * dAngleDt * 15;
+                
                 o.body.position.x = o.startX + Math.sin(angle) * 15;
                 o.body.position.y = o.startY - Math.cos(angle) * 15;
                 o.mesh.position.copy(o.body.position);
@@ -423,7 +440,13 @@ function animate() {
                 o.active = false;
                 o.mesh.visible = false;
                 state.checkpoint.set(o.startX, o.startY + 5, o.startZ);
-                // Flash the screen slightly to indicate save
+                document.getElementById('level-display').innerText = state.checkpointCount;
+                if(state.checkpointCount > state.recordChk) {
+                    state.recordChk = state.checkpointCount;
+                    localStorage.setItem('recordChk', state.recordChk);
+                    document.getElementById('record-chk').innerText = state.recordChk;
+                }
+                
                 const msg = document.getElementById('center-msg');
                 if(msg) { msg.innerText = "CHECKPOINT REACHED"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
             }
