@@ -15,8 +15,8 @@ world.addContactMaterial(new CANNON.ContactMaterial(physMat, physMat, { friction
 
 // --- SCENE ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050510);
-scene.fog = new THREE.FogExp2(0x050510, 0.015);
+scene.background = new THREE.Color(0x66ccff); // Fall Guys Blue Sky
+scene.fog = new THREE.FogExp2(0x66ccff, 0.010);
 
 const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 2000);
 const cameraOffset = new THREE.Vector3(0, 8, 15);
@@ -86,11 +86,13 @@ const state = {
     lastZ: 10
 };
 
-// --- PLAYER ---
+// --- PLAYER (THE BEAN) ---
 const playerRadius = 1;
-const playerMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(playerRadius, 3), new THREE.MeshPhysicalMaterial({ color: 0x00ffff, emissive: 0x00aaaa, roughness: 0.1, transmission: 0.9, thickness: 1.0 }));
+const playerMesh = new THREE.Mesh(new THREE.CapsuleGeometry(playerRadius, 2, 4, 16), new THREE.MeshPhysicalMaterial({ color: 0xff66cc, roughness: 0.2 }));
 playerMesh.castShadow = true; scene.add(playerMesh);
-const playerBody = new CANNON.Body({ mass: 5, material: physMat, shape: new CANNON.Sphere(playerRadius), position: new CANNON.Vec3(0, 10, 0) });
+const playerBody = new CANNON.Body({ mass: 5, material: physMat, shape: new CANNON.Sphere(1.5), position: new CANNON.Vec3(0, 10, 0) });
+playerBody.fixedRotation = true; // Stay upright like a Fall Guy
+playerBody.updateMassProperties();
 world.addBody(playerBody);
 
 const playerLight = new THREE.PointLight(0x00ffff, 3, 40);
@@ -167,14 +169,10 @@ window.addEventListener('keydown', e => {
     }
     if(e.code === 'ShiftLeft' && state.dashReady) {
         state.dashReady = false;
-        // Dash in camera forward direction
-        const forward = new THREE.Vector3();
-        camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-        playerBody.velocity.set(forward.x * 120, 10, forward.z * 120);
-        triggerGlitch(0.2);
-        setTimeout(()=>state.dashReady=true, 1000);
+        // Dive mechanics (Launch forward and up)
+        const forward = new THREE.Vector3(0, 0, -1);
+        playerBody.velocity.set(forward.x * 60, 15, forward.z * 60);
+        setTimeout(()=>state.dashReady=true, 1500); // Long recovery time for diving
     }
     if(e.code === 'KeyE') {
         // Grapple
@@ -193,20 +191,7 @@ window.addEventListener('keyup', e => keys[e.code]=false);
 
 playerBody.addEventListener("collide", (e) => {
     state.jumps = 0; // reset jumps reliably on any collision
-    const hitObj = objects.find(o => o.body === e.body);
-    if(hitObj && (hitObj.type === 'hazard' || hitObj.type === 'spinner')) {
-        // Tackle and destroy the obstacle
-        scene.remove(hitObj.mesh);
-        world.removeBody(hitObj.body);
-        objects.splice(objects.indexOf(hitObj), 1);
-        
-        triggerGlitch(0.2);
-        state.score += 500; // Bonus for tackling
-        document.getElementById('score').innerText = state.score;
-        
-        const msg = document.getElementById('center-msg');
-        if(msg) { msg.innerText = "OBSTACLE TACKLED!"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
-    }
+    // Fall Guys physics naturally handles bouncing you around, so no instant destruction!
 });
 
 // --- BUTTON CONTROLS ---
@@ -305,7 +290,16 @@ function animate() {
     world.step(1/60, Math.min(dt, 0.1), 3);
 
     playerMesh.position.copy(playerBody.position);
-    playerMesh.quaternion.copy(playerBody.quaternion);
+    
+    // Fall Guys Animations
+    if(!state.dashReady) {
+        // Belly slide dive
+        playerMesh.rotation.set(-Math.PI / 2, 0, 0);
+    } else {
+        // Upright, tilt into run
+        playerMesh.rotation.set(playerBody.velocity.z * 0.015, 0, -playerBody.velocity.x * 0.015);
+    }
+    
     playerLight.position.copy(playerMesh.position);
     
     // Trail
