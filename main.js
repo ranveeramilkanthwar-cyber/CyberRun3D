@@ -167,7 +167,7 @@ function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isT
     return body;
 }
 
-function createCheckpointDoor(x, z, num) {
+function createCheckpointDoor(x, y, z, num) {
     const canvas = document.createElement('canvas');
     canvas.width = 512; canvas.height = 256;
     const ctx = canvas.getContext('2d');
@@ -180,13 +180,13 @@ function createCheckpointDoor(x, z, num) {
     const tex = new THREE.CanvasTexture(canvas);
     
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(40, 20), new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false}));
-    mesh.position.set(x, 10, z);
+    mesh.position.set(x, y + 10, z);
     scene.add(mesh);
     
     // trigger body
-    const body = new CANNON.Body({ isTrigger: true, shape: new CANNON.Box(new CANNON.Vec3(20, 10, 1)), position: new CANNON.Vec3(x, 10, z) });
+    const body = new CANNON.Body({ isTrigger: true, shape: new CANNON.Box(new CANNON.Vec3(20, 10, 1)), position: new CANNON.Vec3(x, y + 10, z) });
     world.addBody(body);
-    objects.push({mesh, body, type: 'checkpoint_door', startX: x, startY: 10, startZ: z, active: true});
+    objects.push({mesh, body, type: 'checkpoint_door', startX: x, startY: y + 10, startZ: z, active: true});
 }
 
 function generateChunk(numBlocks) {
@@ -201,7 +201,7 @@ function generateChunk(numBlocks) {
             state.nextCheckpointDist = 8 + Math.floor(Math.random() * 12);
             createObj(0, curY, curZ, 40, 2, 20, 'pad', 0x1111aa);
             state.checkpointCount++;
-            createCheckpointDoor(0, curZ, state.checkpointCount);
+            createCheckpointDoor(0, curY, curZ, state.checkpointCount);
         } else if(r < 0.2) {
             // FALL GUYS: Spinning Hammers
             createObj(0, curY, curZ, 40, 2, 20, 'pad', 0xaa00aa); 
