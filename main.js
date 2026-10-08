@@ -128,50 +128,37 @@ function generate() {
     let dir = 0; // 0: -Z, 1: -X, 2: +X
     
     for(let i=0; i<20+state.level*5; i++) {
-        // Randomly turn left or right
-        if(Math.random() < 0.35) {
-            if(dir === 0) dir = (Math.random() < 0.5) ? 1 : 2;
-            else dir = 0;
-        }
-        
-        let dx = 0, dz = 0;
-        if(dir === 0) dz = -20;
-        else if(dir === 1) dx = -20;
-        else if(dir === 2) dx = 20;
-        
-        curX += dx; curZ += dz;
+        // Path strictly goes forward (straight line)
+        curZ -= 20;
         
         const r = Math.random();
         if (i > 0 && i % 6 === 0) {
             // Visual Checkpoint
-            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-            createObj(curX, 5, curZ, 4, 8, 4, 'checkpoint_idle', 0xff0000, 0, 'x', true);
-        } else if(r < 0.2) {
-            // Gap + Grapple hook point
-            createObj(curX - dx*0.5, 15, curZ - dz*0.5, 4, 4, 4, 'grapple', 0xffff00);
-            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-        } else if (r < 0.5) {
-            // Moving walls (Hazards)
-            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
-            if(dir === 0) { // Moving along Z, obstacles sweep X
-                createObj(curX, 5, curZ, 12, 10, 2, 'hazard', 0xff0000, 2 + state.level * 0.3, 'x');
-            } else { // Moving along X, obstacles sweep Z
-                createObj(curX, 5, curZ, 2, 10, 12, 'hazard', 0xff0000, 2 + state.level * 0.3, 'z');
-            }
-        } else if (r < 0.7) {
-            // Staircase / Elevation
-            createObj(curX - dx*0.6, 2, curZ - dz*0.6, 12, 2, 12, 'pad', 0x2222ff);
-            createObj(curX - dx*0.3, 4, curZ - dz*0.3, 12, 2, 12, 'pad', 0x2222ff);
-            createObj(curX, 6, curZ, 12, 2, 12, 'pad', 0x2222ff);
+            createObj(0, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
+            createObj(0, 5, curZ, 4, 8, 4, 'checkpoint_idle', 0xff0000, 0, 'x', true);
+        } else if(r < 0.3) {
+            // HARD: Gap with Grapple hook + Fast Moving wall
+            createObj(0, 15, curZ + 10, 4, 4, 4, 'grapple', 0xffff00);
+            createObj(0, 0, curZ, 16, 2, 16, 'pad', 0x2222ff);
+            createObj(0, 5, curZ, 12, 10, 2, 'hazard', 0xff0000, 4 + state.level * 0.5, 'x');
+        } else if (r < 0.6) {
+            // MEDIUM: Standard Moving walls
+            createObj(0, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
+            createObj(-5, 5, curZ, 8, 10, 2, 'hazard', 0xff0000, 2 + state.level * 0.2, 'x');
+            createObj(5, 5, curZ-10, 8, 10, 2, 'hazard', 0xff0000, -2 - state.level * 0.2, 'x');
+        } else if (r < 0.8) {
+            // EASY: Staircase / Elevation
+            createObj(0, 2, curZ + 12, 12, 2, 12, 'pad', 0x2222ff);
+            createObj(0, 4, curZ + 6, 12, 2, 12, 'pad', 0x2222ff);
+            createObj(0, 6, curZ, 12, 2, 12, 'pad', 0x2222ff);
         } else {
-            // Safe pad
-            createObj(curX, 0, curZ, 20, 2, 20, 'pad', 0x2222ff);
+            // EASY: Wide Safe pad
+            createObj(0, 0, curZ, 26, 2, 26, 'pad', 0x2222ff);
         }
     }
     // Finish
-    curX += (dir===1?-20:dir===2?20:0);
-    curZ += (dir===0?-20:0);
-    createObj(curX, 0, curZ, 30, 2, 30, 'finish', 0xffffff);
+    curZ -= 20;
+    createObj(0, 0, curZ, 30, 2, 30, 'finish', 0xffffff);
 }
 generate();
 
