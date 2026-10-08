@@ -83,13 +83,38 @@ const state = {
     dashReady: true,
     grappleBody: null, grappleConstraint: null,
     checkpoint: new THREE.Vector3(0, 10, 0),
-    lastZ: 10
+    lastZ: 10,
+    checkpointCount: 0
 };
 
-// --- PLAYER (THE BEAN) ---
+// --- PLAYER (THE BEAN CHARACTER) ---
 const playerRadius = 1;
-const playerMesh = new THREE.Mesh(new THREE.CapsuleGeometry(playerRadius, 2, 4, 16), new THREE.MeshPhysicalMaterial({ color: 0x00ffff, emissive: 0x00aaaa, roughness: 0.1, transmission: 0.9, thickness: 1.0 }));
-playerMesh.castShadow = true; scene.add(playerMesh);
+const playerGroup = new THREE.Group();
+const beanMat = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, emissive: 0x00aaaa, roughness: 0.1, transmission: 0.9, thickness: 1.0 });
+
+// Body
+const bodyMesh = new THREE.Mesh(new THREE.CapsuleGeometry(playerRadius, 2, 4, 16), beanMat);
+playerGroup.add(bodyMesh);
+
+// Eyes
+const eyeMat = new THREE.MeshBasicMaterial({color: 0x000000});
+const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.25), eyeMat);
+eyeR.position.set(0.4, 0.8, -0.9);
+playerGroup.add(eyeR);
+const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.25), eyeMat);
+eyeL.position.set(-0.4, 0.8, -0.9);
+playerGroup.add(eyeL);
+
+// Arms
+const armGeo = new THREE.CapsuleGeometry(0.3, 1.2);
+const armR = new THREE.Mesh(armGeo, beanMat);
+armR.position.set(1.2, 0, 0); armR.rotation.z = -Math.PI/8;
+playerGroup.add(armR);
+const armL = new THREE.Mesh(armGeo, beanMat);
+armL.position.set(-1.2, 0, 0); armL.rotation.z = Math.PI/8;
+playerGroup.add(armL);
+
+scene.add(playerGroup);
 const playerBody = new CANNON.Body({ mass: 5, material: physMat, shape: new CANNON.Sphere(1.5), position: new CANNON.Vec3(0, 10, 0) });
 playerBody.fixedRotation = true; // Stay upright like a Fall Guy
 playerBody.updateMassProperties();
@@ -110,6 +135,28 @@ function createObj(x, y, z, w, h, d, type, color, moveSpeed=0, moveAxis='x', isT
     return body;
 }
 
+function createCheckpointDoor(x, z, num) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+    ctx.fillRect(0,0,512,256);
+    ctx.font = 'bold 120px Arial';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText("CHK " + num, 256, 160);
+    const tex = new THREE.CanvasTexture(canvas);
+    
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(40, 20), new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false}));
+    mesh.position.set(x, 10, z);
+    scene.add(mesh);
+    
+    // trigger body
+    const body = new CANNON.Body({ isTrigger: true, shape: new CANNON.Box(new CANNON.Vec3(20, 10, 1)), position: new CANNON.Vec3(x, 10, z) });
+    world.addBody(body);
+    objects.push({mesh, body, type: 'checkpoint_door', startX: x, startY: 10, startZ: z, active: true});
+}
+
 function generateChunk(numBlocks) {
     for(let i=0; i<numBlocks; i++) {
         state.lastZ -= 20;
@@ -117,21 +164,27 @@ function generateChunk(numBlocks) {
         
         const r = Math.random();
         if (i % 6 === 0) {
-            // Visual Checkpoint
+            // Visual Checkpoint Door
             createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x2222ff);
-            createObj(0, 5, curZ, 4, 8, 4, 'checkpoint_idle', 0xff0000, 0, 'x', true);
-        } else if(r < 0.3) {
+            state.checkpointCount++;
+            createCheckpointDoor(0, curZ, state.checkpointCount);
+        } else if(r < 0.25) {
             // FALL GUYS: Spinning Hammers
             createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xff00ff); // Magenta pad
             createObj(0, 5, curZ, 30, 4, 4, 'spinner', 0xffff00, 3 + state.level*0.2); // Fast spinner
             createObj(18, 50, curZ, 4, 100, 20, 'hazard', 0xff0000); // Static blocker walls
             createObj(-18, 50, curZ, 4, 100, 20, 'hazard', 0xff0000); 
-        } else if (r < 0.6) {
+        } else if (r < 0.5) {
+            // FALL GUYS: Pendulums
+            createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xffaa00);
+            createObj(-10, 25, curZ, 6, 6, 6, 'pendulum', 0xff0000, 3 + state.level*0.1);
+            createObj(10, 25, curZ, 6, 6, 6, 'pendulum', 0xff0000, 3.5 + state.level*0.1);
+        } else if (r < 0.7) {
             // FALL GUYS: Multi-Sliding Doors
             createObj(0, 0, curZ, 40, 2, 20, 'pad', 0x00ffff); // Cyan pad
-            createObj(-15, 50, curZ, 20, 100, 4, 'hazard', 0xff0000, 4 + state.level*0.2, 'x'); // Sweeps from left
-            createObj(15, 50, curZ, 20, 100, 4, 'hazard', 0xff0000, -4 - state.level*0.2, 'x'); // Sweeps opposite
-        } else if (r < 0.8) {
+            createObj(-15, 50, curZ, 20, 100, 8, 'hazard', 0xff0000, 4 + state.level*0.2, 'x'); // Sweeps from left
+            createObj(15, 50, curZ, 20, 100, 8, 'hazard', 0xff0000, -4 - state.level*0.2, 'x'); // Sweeps opposite
+        } else if (r < 0.85) {
             // EASY: Massive jump gaps
             createObj(0, 0, curZ, 40, 2, 8, 'pad', 0x00ff00);
             createObj(-10, 15, curZ - 12, 4, 4, 4, 'grapple', 0xffff00);
@@ -140,7 +193,7 @@ function generateChunk(numBlocks) {
         } else {
             // EASY: Wide Safe pad with minor obstacles
             createObj(0, 0, curZ, 40, 2, 20, 'pad', 0xffff00);
-            createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 4, 'hazard', 0xff0000, 2 + state.level*0.2, 'x');
+            createObj((Math.random()-0.5)*20, 50, curZ, 12, 100, 8, 'hazard', 0xff0000, 2 + state.level*0.2, 'x');
         }
     }
 }
@@ -191,7 +244,23 @@ window.addEventListener('keyup', e => keys[e.code]=false);
 
 playerBody.addEventListener("collide", (e) => {
     state.jumps = 0; // reset jumps reliably on any collision
-    // Fall Guys physics naturally handles bouncing you around, so no instant destruction!
+    const hitObj = objects.find(o => o.body === e.body);
+    if(hitObj && (hitObj.type === 'hazard' || hitObj.type === 'spinner' || hitObj.type === 'pendulum')) {
+        // Only tackle (destroy) the obstacle if you are currently diving!
+        if(!state.dashReady) {
+            scene.remove(hitObj.mesh);
+            world.removeBody(hitObj.body);
+            objects.splice(objects.indexOf(hitObj), 1);
+            
+            triggerGlitch(0.2);
+            state.score += 500; // Bonus for tackling
+            document.getElementById('score').innerText = state.score;
+            
+            const msg = document.getElementById('center-msg');
+            if(msg) { msg.innerText = "OBSTACLE SMASHED!"; msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 1000); }
+        }
+        // Otherwise, Fall Guys physics bounces you naturally!
+    }
 });
 
 // --- BUTTON CONTROLS ---
@@ -289,21 +358,21 @@ function animate() {
     
     world.step(1/60, Math.min(dt, 0.1), 3);
 
-    playerMesh.position.copy(playerBody.position);
+    playerGroup.position.copy(playerBody.position);
     
     // Fall Guys Animations
     if(!state.dashReady) {
         // Belly slide dive
-        playerMesh.rotation.set(-Math.PI / 2, 0, 0);
+        playerGroup.rotation.set(-Math.PI / 2, 0, 0);
     } else {
         // Upright, tilt into run
-        playerMesh.rotation.set(playerBody.velocity.z * 0.015, 0, -playerBody.velocity.x * 0.015);
+        playerGroup.rotation.set(playerBody.velocity.z * 0.015, 0, -playerBody.velocity.x * 0.015);
     }
     
-    playerLight.position.copy(playerMesh.position);
+    playerLight.position.copy(playerGroup.position);
     
     // Trail
-    trailPos[trailIdx*3] = playerMesh.position.x; trailPos[trailIdx*3+1] = playerMesh.position.y; trailPos[trailIdx*3+2] = playerMesh.position.z;
+    trailPos[trailIdx*3] = playerGroup.position.x; trailPos[trailIdx*3+1] = playerGroup.position.y; trailPos[trailIdx*3+2] = playerGroup.position.z;
     trailIdx = (trailIdx+1)%trailCount;
     trailGeo.attributes.position.needsUpdate = true;
     
@@ -311,7 +380,7 @@ function animate() {
     if(state.grappleConstraint) {
         grLine.visible = true;
         const pts = grLineGeo.attributes.position.array;
-        pts[0]=playerMesh.position.x; pts[1]=playerMesh.position.y; pts[2]=playerMesh.position.z;
+        pts[0]=playerGroup.position.x; pts[1]=playerGroup.position.y; pts[2]=playerGroup.position.z;
         pts[3]=state.grappleConstraint.bodyB.position.x; pts[4]=state.grappleConstraint.bodyB.position.y; pts[5]=state.grappleConstraint.bodyB.position.z;
         grLineGeo.attributes.position.needsUpdate = true;
         // Reel in
@@ -340,11 +409,19 @@ function animate() {
                 o.mesh.quaternion.copy(o.body.quaternion);
             }
         }
-        if(o.type === 'checkpoint_idle') {
-            if(o.body.position.distanceTo(playerBody.position) < 8) {
-                o.type = 'checkpoint_active';
-                o.mesh.material.color.setHex(0x00ff00);
-                o.mesh.material.emissive.setHex(0x00ff00);
+        if(o.type === 'pendulum') {
+            if(o.moveSpeed) {
+                o.time += dt * o.moveSpeed;
+                const angle = Math.sin(o.time) * Math.PI/2.5;
+                o.body.position.x = o.startX + Math.sin(angle) * 15;
+                o.body.position.y = o.startY - Math.cos(angle) * 15;
+                o.mesh.position.copy(o.body.position);
+            }
+        }
+        if(o.type === 'checkpoint_door') {
+            if(o.active && o.body.position.distanceTo(playerBody.position) < 8) {
+                o.active = false;
+                o.mesh.visible = false;
                 state.checkpoint.set(o.startX, o.startY + 5, o.startZ);
                 // Flash the screen slightly to indicate save
                 const msg = document.getElementById('center-msg');
@@ -379,10 +456,10 @@ function animate() {
 
     // TPP Camera (Follow behind and look forward)
     const idealOffset = new THREE.Vector3(0, 12, 25);
-    const targetCamPos = playerMesh.position.clone().add(idealOffset);
+    const targetCamPos = playerGroup.position.clone().add(idealOffset);
     camera.position.lerp(targetCamPos, 0.1);
     
-    const idealLookAt = playerMesh.position.clone().add(new THREE.Vector3(0, 0, -30));
+    const idealLookAt = playerGroup.position.clone().add(new THREE.Vector3(0, 0, -30));
     camera.lookAt(idealLookAt);
 
     // Animate background stars
